@@ -4,10 +4,18 @@ from collections import Counter
 import os
 
 app = Flask(__name__)
-# Za testiranje dovoli vsem originom
-CORS(app)  
+# Odpri CORS za vse poti in metode
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=False)
 
-# Shramba v RAM-u (reset ob restartu)
+
+@app.after_request
+def add_cors_headers(resp):
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    return resp
+
+# In-memory statistika (reset ob restartu)
 total_events = 0
 events_per_location = Counter()
 
@@ -15,6 +23,7 @@ events_per_location = Counter()
 def health():
     return jsonify({"ok": True})
 
+# Glavni stats endpoint
 @app.route("/stats", methods=["GET"])
 def get_stats():
     return jsonify({
@@ -22,15 +31,23 @@ def get_stats():
         "eventsPerLocation": dict(events_per_location)
     })
 
-@app.route("/stats", methods=["POST"])
+# Alias, ker frontend kliče /summary
+@app.route("/summary", methods=["GET"])
+def get_summary():
+    return get_stats()
+
+# Sprejem dogodkov
+@app.route("/stats", methods=["POST", "OPTIONS"])
 def add_event():
+    if request.method == "OPTIONS":
+        return ("", 204)
     global total_events, events_per_location
-    data = request.get_json(force=True)
+    data = request.get_json(force=True, silent=True) or {}
     location = (data.get("location") or "Neznano").strip() or "Neznano"
     total_events += 1
     events_per_location[location] += 1
     return jsonify({"ok": True, "newTotal": total_events})
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8085))  # Render poda PORT
+    port = int(os.environ.get("PORT", 8085))  # Render posreduje PORT
     app.run(host="0.0.0.0", port=port)
