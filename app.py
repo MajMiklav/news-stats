@@ -4,11 +4,16 @@ from collections import Counter
 import os
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+# Za testiranje dovoli vsem originom
+CORS(app)  
 
 # Shramba v RAM-u (reset ob restartu)
 total_events = 0
 events_per_location = Counter()
+
+@app.route("/", methods=["GET"])
+def health():
+    return jsonify({"ok": True})
 
 @app.route("/stats", methods=["GET"])
 def get_stats():
@@ -27,5 +32,5 @@ def add_event():
     return jsonify({"ok": True, "newTotal": total_events})
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8085))  # Render posreduje PORT
+    port = int(os.environ.get("PORT", 8085))  # Render poda PORT
     app.run(host="0.0.0.0", port=port)
